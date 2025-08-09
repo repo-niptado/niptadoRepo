@@ -1,0 +1,30 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "ts-node -r tsconfig-paths/register server/index.ts",
+    "server": "ts-node server/index.ts",
+    "cron": "ts-node apps/backend/src/cron-worker.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.0",
+    "express": "^4.18.2",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": "dist"
+  },
+  "include": ["src"],
+  "dependencies": {
+    "tsconfig-paths": "^4.2.0"
+  }
+}

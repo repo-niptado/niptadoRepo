@@ -1,0 +1,284 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String?
+  email          String?  @unique
+  emailVerified  DateTime?
+  image          String?
+  phone          String?
+  location       String?
+  password       String?
+  role           Role     @default(USER)
+  created_at     DateTime @default(now())
+  profileImage   String?
+
+  accounts       Account[]
+  sessions       Session[]
+  complaints     Complaint[]
+
+  age            Int?    
+  country        String?  
+  state_or_region String? 
+}
+
+
+
+enum Role {
+  USER
+  ADMIN
+  SUPERADMIN
+}
+
+model Company {
+  company_id    Int    @id @default(autoincrement())
+  name          String @unique
+  industry      String
+  location      String
+  contact_email String
+
+  complaints   Complaint[]
+  scorecard    Scorecard?
+  contacts     CompanyContact[]
+  media_contacts MediaContact[] 
+}
+
+model CompanyContact {
+  contact_id  Int              @id @default(autoincrement())
+  company_id  Int
+  name        String
+  email       String
+  designation String
+  category    ContactCategory?
+
+  company           Company            @relation(fields: [company_id], references: [company_id])
+  complaintContacts ComplaintContact[]
+}
+
+enum ContactCategory {
+  TOP_EXECUTIVE
+  MIDDLE_MANAGEMENT
+  CUSTOMER_SUPPORT
+  OTHER
+}
+
+model MediaContact {
+  media_contact_id Int           @id @default(autoincrement())
+  name             String
+  email            String
+  organization     String
+  designation      String
+  category         MediaCategory // Optional enum for further classification
+
+  company_id          Int
+  company             Company                 @relation(fields: [company_id], references: [company_id])
+  complaintMediaLinks ComplaintMediaContact[]
+}
+
+enum MediaCategory {
+  PRESS
+  TV
+  ONLINE
+  OTHER
+}
+
+model ComplaintMediaContact {
+  complaint_id     Int
+  media_contact_id Int
+  contacted_at     DateTime @default(now())
+  response_status  String   @default("Pending")
+
+  complaint    Complaint    @relation(fields: [complaint_id], references: [complaint_id])
+  mediaContact MediaContact @relation(fields: [media_contact_id], references: [media_contact_id])
+
+  @@id([complaint_id, media_contact_id])
+}
+
+
+model Complaint {
+  complaint_id             Int      @id @default(autoincrement())
+  user_id                  String
+  company_id               Int
+  category                 String
+  subcategory              String
+  description              String
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+  status                   String   @default("Pending")
+  disputed_value           Float
+  desired_resolution       String
+
+  // Escalation Logic
+  current_escalation_level Int      @default(1)
+  next_escalation_due_at   DateTime?
+  last_escalation_triggered DateTime?
+  escalation_status         String? // "Waiting", "Escalated", "Resolved"
+
+  // === LEVEL 1 ===
+  level1_subject            String?
+  level1_issue_summary      String?
+  level1_impact             String?
+  level1_prior_attempts     String?
+  level1_requested_action   String?
+  level1_generated_email    String?
+
+  // === LEVEL 2 ===
+  level2_new_info           String?
+  level2_tone_adjustment    String?
+  level2_generated_email    String?
+
+  // === LEVEL 3 ===
+  level3_executive_warning  String?
+  level3_external_threat    String?
+  level3_generated_email    String?
+
+  // === LEVEL 4 ===
+  level4_media_plan         String?
+  level4_generated_email    String?
+
+  // === LEVEL 5 ===
+  level5_legal_reference    String?
+  level5_generated_email    String?
+
+  // === LEVEL 6 ===
+  level6_social_summary     String?
+  level6_generated_email    String?
+
+  // Relations
+  user                      User            @relation(fields: [user_id], references: [id])
+  company                   Company         @relation(fields: [company_id], references: [company_id])
+  communications            Communication[]
+  escalations               Escalation[]
+  settlements               Settlement[]
+  documents                 Document[]
+  complaintContacts         ComplaintContact[]
+  complaintMediaLinks       ComplaintMediaContact[]
+}
+
+
+model ComplaintContact {
+  complaint_id    Int
+  contact_id      Int
+  contacted_at    DateTime @default(now())
+  response_status String   @default("Pending")
+
+  complaint Complaint      @relation(fields: [complaint_id], references: [complaint_id])
+  contact   CompanyContact @relation(fields: [contact_id], references: [contact_id])
+
+  @@id([complaint_id, contact_id]) // Composite primary key
+}
+
+model ClassActionGroup {
+  group_id    Int      @id @default(autoincrement())
+  name        String
+  description String
+  created_at  DateTime @default(now())
+  status      String
+}
+
+model Scorecard {
+  company_id            Int      @id
+  response_time_avg     Float
+  resolution_rate       Float
+  customer_satisfaction Float
+  escalation_frequency  Float
+  compensation_fairness Float
+  recurrence_rate       Float
+  calculated_at         DateTime
+
+  company Company @relation(fields: [company_id], references: [company_id])
+}
+
+model Communication {
+  communication_id Int      @id @default(autoincrement())
+  complaint_id     Int
+  sender_id        Int
+  sender_type      String
+  sent_at          DateTime
+  content          String
+  channel          String
+  read_receipt     Boolean
+
+  complaint Complaint @relation(fields: [complaint_id], references: [complaint_id])
+}
+
+model Escalation {
+  escalation_id Int      @id @default(autoincrement())
+  complaint_id  Int
+  level         Int
+  triggered_at  DateTime
+  details       String
+  status        String
+
+  complaint Complaint @relation(fields: [complaint_id], references: [complaint_id])
+}
+
+model Settlement {
+  settlement_id        Int      @id @default(autoincrement())
+  complaint_id         Int
+  offered_amount       Decimal
+  counter_offer_amount Decimal
+  status               String
+  offered_at           DateTime
+  resolved_at          DateTime
+
+  complaint Complaint @relation(fields: [complaint_id], references: [complaint_id])
+}
+
+model Document {
+  document_id  Int      @id @default(autoincrement())
+  complaint_id Int
+  file_name    String
+  file_path    String
+  uploaded_at  DateTime
+  file_type    String
+
+  complaint Complaint @relation(fields: [complaint_id], references: [complaint_id])
+}
+
+
+model Account {
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
