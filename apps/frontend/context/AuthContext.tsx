@@ -60,8 +60,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+  if (status === "loading") return;
+
+  if (status === "authenticated" && !user) {
     fetchUser();
-  }, [session]); // rerun when Google session changes
+  } else if (status === "unauthenticated") {
+    setUser(null);
+    setLoading(false);
+  }
+}, [status]);
+
+  // useEffect(() => {
+  //   if (status === "loading") {
+  //     setLoading(true);
+  //     return;
+  //   }
+    
+  //   fetchUser();
+  // }, [session, status]); // rerun when Google session or status changes
 
   const logout = async () => {
     try {

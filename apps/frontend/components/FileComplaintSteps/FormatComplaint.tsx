@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { FormData } from "@/app/FileComplaint/page"; // Adjust import path as needed
+import { FormData } from "@/app/dashboard/FileComplaint/page"; // Using dashboard version for compatibility
 import { FileText } from "lucide-react";
 
 interface User {
@@ -24,15 +24,15 @@ const FormatComplaint: React.FC<FormatComplaintProps> = ({
   // Automatically generate formatted email when required fields are filled
   useEffect(() => {
     if (
-      formData.title.trim() !== "" &&
-      formData.description.trim() !== "" &&
+      formData.incident_date.trim() !== "" &&
+      formData.issue_summary.trim() !== "" &&
       !formData.formattedEmail &&
       !isGenerating
     ) {
       onGenerateEmail();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.title, formData.description]);
+  }, [formData.incident_date, formData.issue_summary]);
 
   // Ref for textarea
   const textareaRef = useRef<HTMLTextAreaElement>(null);

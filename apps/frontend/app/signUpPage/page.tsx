@@ -313,7 +313,13 @@ const SignUpPage = () => {
                   {socialLogins.slice(0, 2).map((social, index) => (
                     <button
                       key={index}
-                      onClick={() => signIn(social.name.toLowerCase())}
+                      onClick={() => {
+                        if (social.name.toLowerCase() === 'google') {
+                          signIn('google', { callbackUrl: '/' });
+                        } else {
+                          signIn(social.name.toLowerCase());
+                        }
+                      }}
                       className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 py-3 rounded-xl hover:bg-white/20 transition-all duration-300 flex items-center justify-center space-x-2"
                     >
                       <social.icon className="w-5 h-5" />

@@ -2,7 +2,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FormData } from "@/app/FileComplaint/page";
+import { FormData as ComplaintFormData } from "@/app/dashboard/FileComplaint/page";
+import axios from "axios";
+import { getSession } from "next-auth/react";
 
 import {
   ArrowLeft,
@@ -18,11 +20,13 @@ import {
   AlertTriangle,
   CheckCircle,
   Info,
+  X,
+  Plus,
 } from "lucide-react";
 
 interface ComplaintDetailsProps {
-  formData: FormData;
-  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  formData: ComplaintFormData;
+  setFormData: React.Dispatch<React.SetStateAction<ComplaintFormData>>;
 }
 
 const ComplaintDetails: React.FC<ComplaintDetailsProps> = ({
@@ -30,9 +34,21 @@ const ComplaintDetails: React.FC<ComplaintDetailsProps> = ({
   setFormData,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
     setIsLoaded(true);
+  }, []);
+
+  // 🔐 Fetch token on mount
+  useEffect(() => {
+    const fetchToken = async () => {
+      const session = await getSession();
+      const jwt = (session?.user as any)?.backendToken;
+      if (jwt) setToken(jwt);
+    };
+    fetchToken();
   }, []);
 
   const evidenceDisclaimer = [
@@ -42,6 +58,68 @@ const ComplaintDetails: React.FC<ComplaintDetailsProps> = ({
     "Original receipts and invoices help establish financial impact",
     "The more evidence provided, the stronger your case becomes",
   ];
+
+  // File upload handler
+  const handleFileUpload = async (files: FileList) => {
+    setUploadingFiles(true);
+    const formData = new FormData();
+    
+    // Add all files to FormData
+    Array.from(files).forEach((file) => {
+      formData.append('documents', file);
+    });
+
+    try {
+      const response = await axios.post(
+        'http://localhost:3001/api/documents/upload',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...(token && { Authorization: `Bearer ${token}` })
+          },
+          withCredentials: true,
+        }
+      );
+
+      // Add uploaded files to form state
+      const newFiles = response.data.documents;
+      setFormData(prev => ({
+        ...prev,
+        uploadedFiles: [...prev.uploadedFiles, ...newFiles]
+      }));
+    } catch (error) {
+      console.error('File upload failed:', error);
+      alert('Failed to upload files. Please try again.');
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
+  // Remove file handler
+  const removeFile = (index: number) => {
+    const updatedFiles = formData.uploadedFiles.filter((_, i) => i !== index);
+    setFormData(prev => ({ ...prev, uploadedFiles: updatedFiles }));
+  };
+
+  // File input change handler
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files);
+    }
+    // Reset input value to allow same file to be uploaded again if needed
+    e.target.value = '';
+  };
+
+  // Get file size in readable format
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   return (
     <div className="space-y-4">
@@ -97,12 +175,10 @@ const ComplaintDetails: React.FC<ComplaintDetailsProps> = ({
                   <div className="relative">
                     <input
                       type="date"
-                      value={formData.title}
+                      value={formData.incident_date}
                       onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
+                        setFormData({ ...formData, incident_date: e.target.value })
                       }
-                      // value={formData.date}
-                      // onChange={(e) => handleInputChange('date', e.target.value)}
                       className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all duration-300"
                     />
                     <Calendar className="absolute right-4 top-4 w-5 h-5 text-white/50 pointer-events-none" />
@@ -117,12 +193,10 @@ const ComplaintDetails: React.FC<ComplaintDetailsProps> = ({
                   <div className="relative">
                     <input
                       type="time"
-                      value={formData.title}
+                      value={formData.incident_time}
                       onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
+                        setFormData({ ...formData, incident_time: e.target.value })
                       }
-                      // value={formData.time}
-                      // onChange={(e) => handleInputChange('time', e.target.value)}
                       className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all duration-300"
                     />
                     <Clock className="absolute right-4 top-4 w-5 h-5 text-white/50 pointer-events-none" />
@@ -150,21 +224,19 @@ const ComplaintDetails: React.FC<ComplaintDetailsProps> = ({
               <div className="relative">
                 <input
                   type="text"
-                  // value={formData.orderId}
-                  // onChange={(e) => handleInputChange('orderId', e.target.value)}
                   placeholder="e.g., ORDER-123456, TXN-ABC789, REF-XYZ123"
                   className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white placeholder-white/50 focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all duration-300 text-lg"
-                  value={formData.description}
+                  value={formData.order_id}
                   onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
+                    setFormData({ ...formData, order_id: e.target.value })
                   }
                 />
 
                 {/* Validation Indicator */}
                 <div className="absolute top-4 right-4">
-                  {formData.description.length >= 3 ? (
+                  {formData.order_id.length >= 3 ? (
                     <CheckCircle className="w-5 h-5 text-green-400" />
-                  ) : formData.description.length > 0 ? (
+                  ) : formData.order_id.length > 0 ? (
                     <AlertTriangle className="w-5 h-5 text-yellow-400" />
                   ) : null}
                 </div>
@@ -227,23 +299,46 @@ const ComplaintDetails: React.FC<ComplaintDetailsProps> = ({
                 </div>
               </div>
 
-              {/* Upload Options - Horizontal Layout */}
-              {/* <div className="flex gap-4 mb-6">
-                {evidenceTypes.map((type, index) => (
-                  <button
-                    key={index}
-                    onClick={type.action}
-                    className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center hover:bg-white/20 hover:border-red-400/30 transition-all duration-300 group"
-                  >
-                    <type.icon className="w-6 h-6 text-white/60 mx-auto mb-2 group-hover:text-white/80 transition-colors" />
-                    <h3 className="text-white font-semibold text-sm mb-1">{type.title}</h3>
-                    <p className="text-white/60 text-xs">{type.description}</p>
-                  </button>
-                ))}
-              </div> */}
+              {/* File Upload Area */}
+              <div className="mb-6">
+                <input
+                  type="file"
+                  id="file-upload"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.txt"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                  disabled={uploadingFiles}
+                />
+                <label
+                  htmlFor="file-upload"
+                  className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/30 rounded-2xl cursor-pointer bg-white/5 hover:bg-white/10 transition-all duration-300 ${
+                    uploadingFiles ? 'opacity-50 cursor-not-allowed' : 'hover:border-red-400/50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    {uploadingFiles ? (
+                      <>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                        <p className="text-sm text-white/70">Uploading files...</p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 mb-2 text-white/60" />
+                        <p className="mb-2 text-sm text-white/80">
+                          <span className="font-semibold">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-white/60">
+                          PDF, JPG, PNG, DOC up to 10MB each (Max 10 files)
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </label>
+              </div>
 
               {/* Uploaded Files */}
-              {/* {formData.uploadedFiles.length > 0 && (
+              {formData.uploadedFiles.length > 0 && (
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 mb-6">
                   <h3 className="text-white font-semibold mb-3 flex items-center">
                     <Shield className="w-5 h-5 mr-2 text-green-400" />
@@ -254,20 +349,27 @@ const ComplaintDetails: React.FC<ComplaintDetailsProps> = ({
                       <div key={index} className="flex items-center justify-between bg-white/10 rounded-lg p-3">
                         <div className="flex items-center space-x-3">
                           <FileText className="w-4 h-4 text-green-400" />
-                          <span className="text-white text-sm">{file.name}</span>
-                          <span className="text-green-400 text-xs">✓ Uploaded</span>
+                          <div className="flex flex-col">
+                            <span className="text-white text-sm font-medium">{file.file_name}</span>
+                            {file.size && (
+                              <span className="text-white/50 text-xs">{formatFileSize(file.size)}</span>
+                            )}
+                          </div>
+                          <span className="text-green-400 text-xs bg-green-400/20 px-2 py-1 rounded-full">
+                            ✓ Uploaded
+                          </span>
                         </div>
                         <button
                           onClick={() => removeFile(index)}
-                          className="text-red-400 hover:text-red-300 text-sm"
+                          className="text-red-400 hover:text-red-300 p-1 hover:bg-red-400/20 rounded transition-all duration-200"
                         >
-                          Remove
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
                   </div>
                 </div>
-              )} */}
+              )}
 
               {/* Evidence Guidelines */}
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6">

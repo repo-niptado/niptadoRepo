@@ -1,12 +1,11 @@
 // routes/auth.ts
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import prisma from '../prisma/client';
 
 const router = Router();
-const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret';
+const AUTH_SECRET = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'defaultsecret';
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -24,7 +23,7 @@ if (!user.password) {
 const isValid = await bcrypt.compare(password, user.password);
   if (!isValid) return res.status(401).json({ message: 'Invalid credentials' });
 
-  const token = jwt.sign({  id: user.id }, JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({  id: user.id }, AUTH_SECRET, { expiresIn: '1h' });
   res.cookie('token', token, { httpOnly: true });
   res.json({ message: 'Login successful', name: user.name });
   

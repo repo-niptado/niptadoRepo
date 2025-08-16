@@ -1,6 +1,6 @@
 // steps/ConfirmDetails.tsx
 import React, { useState } from "react";
-import { FormData } from "@/app/FileComplaint/page"; // Adjust import path as needed
+import { FormData } from "@/app/dashboard/FileComplaint/page"; // Using dashboard version for compatibility
 import { Bold } from "lucide-react";
 
 interface Company {

@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { AlertTriangle, Star, Search } from "lucide-react";
+import EnhancedCompanySearch from '../EnhancedCompanySearch';
 
 interface Company {
   company_id: number;
   name: string;
+  industry?: string;
+  location?: string;
 }
 
 interface CompanySelectionProps {
@@ -20,19 +23,48 @@ const CompanySelection: React.FC<CompanySelectionProps> = ({
   onCompanyChange,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<any>(null);
+  const [showGrid, setShowGrid] = useState(true);
 
   useEffect(() => {
     setIsLoaded(true);
   }, []);
 
-  const [searchTerm, setSearchTerm] = useState("");
+  // Find selected company from companies list
+  useEffect(() => {
+    if (selectedCompanyId) {
+      const company = companies.find(c => c.company_id.toString() === selectedCompanyId);
+      if (company) {
+        setSelectedCompany({
+          id: `db_${company.company_id}`,
+          name: company.name,
+          industry: company.industry || 'Unknown',
+          location: company.location || 'Unknown',
+          source: 'database',
+          verified: true
+        });
+      }
+    }
+  }, [selectedCompanyId, companies]);
 
-  const filteredCompanies =
-    searchTerm.length >= 3
-      ? companies.filter((company) =>
-          company.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      : companies;
+  const handleCompanySelect = (company: any) => {
+    setSelectedCompany(company);
+    setShowGrid(false);
+    
+    // Extract company ID from the enhanced search result
+    let companyId;
+    if (company.source === 'database' && company.id.startsWith('db_')) {
+      companyId = company.id.replace('db_', '');
+    } else if (company.company_id) {
+      companyId = company.company_id.toString();
+    } else {
+      // If it's a new company from RocketReach, we'll need to handle this
+      console.log('New company selected from RocketReach:', company);
+      companyId = 'new_' + company.name; // Temporary ID
+    }
+    
+    onCompanyChange(companyId);
+  };
 
   return (
     <>
@@ -57,122 +89,161 @@ const CompanySelection: React.FC<CompanySelectionProps> = ({
             </p>
           </div>
 
-          {/* Search and Filter Section */}
+          {/* Enhanced Company Search */}
           <div
             className={`mb-8 transition-all duration-1000 delay-300 ${
               isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            {/* Search Bar */}
-            <div className="relative mb-6">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-white/50" />
-              </div>
-              <input
-                type="text"
-                className="block w-full pl-12 pr-4 py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all duration-300"
-                placeholder="Search for a company..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+            <div className="max-w-2xl mx-auto">
+              <EnhancedCompanySearch
+                onSelectCompany={handleCompanySelect}
+                selectedCompany={selectedCompany}
+                placeholder="Search companies from our database and RocketReach..."
               />
             </div>
-
-            {/* Category Filter */}
-            <div className="flex flex-wrap gap-3 justify-center">
-              {/* {categories.map((category) => (
+            
+            {/* Selected Company Display */}
+            {selectedCompany && (
+              <div className="mt-6 max-w-2xl mx-auto">
+                <div className="bg-white/10 backdrop-blur-md border border-green-400/50 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                      <span className="text-green-300 font-bold">
+                        {selectedCompany.name.charAt(0)}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-white font-semibold">{selectedCompany.name}</h3>
+                      <div className="flex items-center gap-4 text-sm text-white/70">
+                        <span>🏭 {selectedCompany.industry}</span>
+                        <span>📍 {selectedCompany.location}</span>
+                        {selectedCompany.source === 'rocketreach' && (
+                          <span className="text-blue-300">✨ From RocketReach</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedCompany(null);
+                        setShowGrid(true);
+                        onCompanyChange('');
+                      }}
+                      className="text-white/50 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Toggle to show/hide grid */}
+            {!selectedCompany && (
+              <div className="text-center mt-6">
                 <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                    selectedCategory === category
-                      ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg'
-                      : 'bg-white/10 backdrop-blur-md border border-white/20 text-white/80 hover:bg-white/20'
-                  }`}
+                  onClick={() => setShowGrid(!showGrid)}
+                  className="text-white/70 hover:text-white text-sm underline"
                 >
-                  {category}
+                  {showGrid ? 'Hide' : 'Show'} popular companies
                 </button>
-              ))} */}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Company Grid */}
-          <div
-            className={`transition-all duration-1000 delay-500 ${
-              isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
-          >
-            <div className="grid grid-cols-4 gap-6">
-              {filteredCompanies.map((company, index) => {
-                const isSelected =
-                  selectedCompanyId === company.company_id.toString();
+          {showGrid && (
+            <div
+              className={`transition-all duration-1000 delay-500 ${
+                isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+              }`}
+            >
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-white mb-2">Popular Companies</h2>
+                <p className="text-white/60">Quick selection from our database</p>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                {companies.slice(0, 8).map((company, index) => {
+                  const isSelected =
+                    selectedCompanyId === company.company_id.toString();
 
-                const getInitials = (name: string) =>
-                  name
-                    .split(" ")
-                    .map((word) => word[0])
-                    .join("")
-                    .slice(0, 2);
+                  const getInitials = (name: string) =>
+                    name
+                      .split(" ")
+                      .map((word) => word[0])
+                      .join("")
+                      .slice(0, 2);
 
-                return (
-                  <div
-                    key={company.company_id}
-                    className={`group bg-white/10 backdrop-blur-md border rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-xl ${
-                      isSelected
-                        ? "border-red-500 bg-white/20"
-                        : "border-white/20 hover:border-white/30 hover:bg-white/15"
-                    } opacity-100`} // <-- changed from opacity-0 animate-fade-in-up to opacity-100
-                    style={{
-                      animationDelay: `${index * 100}ms`,
-                      animationFillMode: "forwards",
-                    }}
-                    onClick={() =>
-                      onCompanyChange(company.company_id.toString())
-                    }
-                  >
-                    {/* Company Initials */}
-                    <div className="flex items-center justify-center mb-4">
-                      <div className="w-16 h-16 bg-white/90 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-gray-800 font-bold text-lg">
-                          {getInitials(company.name)}
+                  return (
+                    <div
+                      key={company.company_id}
+                      className={`group bg-white/10 backdrop-blur-md border rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-xl ${
+                        isSelected
+                          ? "border-red-500 bg-white/20"
+                          : "border-white/20 hover:border-white/30 hover:bg-white/15"
+                      } opacity-100`}
+                      style={{
+                        animationDelay: `${index * 100}ms`,
+                        animationFillMode: "forwards",
+                      }}
+                      onClick={() => {
+                        const companyData = {
+                          id: `db_${company.company_id}`,
+                          name: company.name,
+                          industry: company.industry || 'Unknown',
+                          location: company.location || 'Unknown',
+                          source: 'database',
+                          verified: true
+                        };
+                        handleCompanySelect(companyData);
+                      }}
+                    >
+                      {/* Company Initials */}
+                      <div className="flex items-center justify-center mb-4">
+                        <div className="w-16 h-16 bg-white/90 rounded-xl flex items-center justify-center shadow-lg">
+                          <span className="text-gray-800 font-bold text-lg">
+                            {getInitials(company.name)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Company Name */}
+                      <h3 className="text-white font-semibold text-lg text-center mb-2">
+                        {company.name}
+                      </h3>
+
+                      {/* Industry Category */}
+                      <div className="flex justify-center mb-3">
+                        <span className="bg-red-500/20 text-red-300 text-xs px-3 py-1 rounded-full border border-red-500/30">
+                          {company.industry || 'General'}
                         </span>
                       </div>
-                    </div>
 
-                    {/* Company Name */}
-                    <h3 className="text-white font-semibold text-lg text-center mb-2">
-                      {company.name}
-                    </h3>
-
-                    {/* Dummy Category */}
-                    <div className="flex justify-center mb-3">
-                      <span className="bg-red-500/20 text-red-300 text-xs px-3 py-1 rounded-full border border-red-500/30">
-                        General
-                      </span>
-                    </div>
-
-                    {/* Dummy Rating & Complaints */}
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-green-400" />
-                        <span className="text-green-400 font-medium">4.2</span>
+                      {/* Dummy Rating & Complaints */}
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-4 h-4 text-green-400" />
+                          <span className="text-green-400 font-medium">4.2</span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-white/60">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span>34</span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-1 text-white/60">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span>34</span>
-                      </div>
-                    </div>
 
-                    {/* Selection Indicator */}
-                    {isSelected && (
-                      <div className="mt-4">
-                        <div className="w-full h-1 bg-gradient-to-r from-red-500 to-pink-500 rounded-full" />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {/* Selection Indicator */}
+                      {isSelected && (
+                        <div className="mt-4">
+                          <div className="w-full h-1 bg-gradient-to-r from-red-500 to-pink-500 rounded-full" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Help Section */}
           <div

@@ -18,22 +18,42 @@ export default async function escalateLevel5ToLevel6() {
     include: {
       company: true,
       user: true,
+      documents: true,
     },
   });
 
   for (const complaint of complaints) {
+    // Format incident date for display if available
+    const incidentInfo = complaint.incident_date ? 
+      `${new Date(complaint.incident_date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}${complaint.incident_time ? ` at ${complaint.incident_time}` : ''}` : 'Date not specified';
+
     const prompt = `
-A consumer has escalated a complaint to Level 6 (social awareness).
-Company: ${complaint.company.name}
-Issue: ${complaint.level1_issue_summary}
-Timeline: ${complaint.created_at.toDateString()} to ${now.toDateString()}
-User Name: ${complaint.user.name}
-Generate the following 4 types of messages (text only):
-- Twitter/X format (max 280 chars)
-- LinkedIn professional post
-- Facebook community post
-- Instagram story summary (5 slides style)
-Do NOT use markdown. Return all 4 parts clearly labelled.
+A consumer has escalated a complaint to Level 6 (social media awareness) after all other escalation attempts failed.
+
+Complaint Details:
+- Company: ${complaint.company.name}
+- Issue: ${complaint.level1_issue_summary || complaint.description}
+- Incident Date: ${incidentInfo}
+${complaint.order_id ? `- Order/Transaction ID: ${complaint.order_id}` : ''}
+- Customer Impact: ${complaint.level1_impact || 'Significant inconvenience and poor service'}
+- Timeline: Original complaint ${complaint.created_at.toDateString()}, escalated multiple times, now ${now.toDateString()}
+- User Name: ${complaint.user.name}
+- Complaint Reference: ${complaint.complaint_id}
+${complaint.documents?.length ? `- Evidence: ${complaint.documents.length} supporting document(s)` : ''}
+
+Context: Customer tried internal escalation for weeks with no response from ${complaint.company.name}. This is about corporate accountability and consumer rights.
+
+Generate the following 4 types of social media messages (text only):
+1. Twitter/X format (max 280 chars) - Focus on corporate accountability
+2. LinkedIn professional post - Professional tone about consumer rights 
+3. Facebook community post - Community-focused, seeking others with similar experiences
+4. Instagram story summary (5 slides style) - Visual storytelling format
+
+Do NOT use markdown. Return all 4 parts clearly labelled. Keep tone professional but firm about consumer rights.
 `;
 
     try {

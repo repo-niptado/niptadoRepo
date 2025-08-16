@@ -123,6 +123,13 @@ model Complaint {
   last_escalation_triggered DateTime?
   escalation_status         String? // "Waiting", "Escalated", "Resolved"
 
+  // New fields for proper complaint handling
+  incident_date             String?  // Date when the incident occurred
+  incident_time             String?  // Time when the incident occurred
+  order_id                  String?  // Order/Transaction ID
+  incident_datetime         DateTime? // Combined incident date and time
+  title                     String?   // Complaint title
+
   // === LEVEL 1 ===
   level1_subject            String?
   level1_issue_summary      String?

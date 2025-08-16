@@ -16,11 +16,20 @@ async function escalateLevel3ToLevel4() {
     include: {
       user: true,
       company: true,
+      documents: true,
     },
   });
 
   for (const complaint of complaints) {
     const { user, company } = complaint;
+
+    // Format incident date for display if available
+    const incidentInfo = complaint.incident_date ? 
+      `${new Date(complaint.incident_date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}${complaint.incident_time ? ` at ${complaint.incident_time}` : ''}` : 'Not specified';
 
     const prompt = `
 Subject: Consumer Alert: ${company.name} Customer Service Failure - Potential Story Opportunity
@@ -30,29 +39,44 @@ Dear Journalist/News Desk,
 I am reaching out regarding a significant consumer protection issue involving ${company.name} that may be of interest to your audience.
 
 Story Overview:
-Despite multiple attempts over the last few weeks, ${company.name} has failed to address a legitimate customer complaint regarding "${complaint.level1_subject}". This case highlights concerning patterns in corporate customer service and consumer rights.
+Despite multiple attempts over the last few weeks, ${company.name} has failed to address a legitimate customer complaint regarding "${complaint.level1_issue_summary || complaint.title}". This case highlights concerning patterns in corporate customer service and consumer rights.
+
+Incident Details:
+- Original incident date: ${incidentInfo}
+${complaint.order_id ? `- Transaction/Order ID: ${complaint.order_id}` : ''}
+- Complaint reference: ${complaint.complaint_id}
+- Nature of issue: ${complaint.level1_issue_summary || complaint.description}
+- Customer impact: ${complaint.level1_impact || 'Significant inconvenience and financial impact'}
+${complaint.documents?.length ? `- Supporting evidence: ${complaint.documents.length} document(s) available` : ''}
 
 Key Story Elements:
-- Clear corporate responsibility for: ${complaint.level1_issue_summary}
-- Documented pattern of ignoring customer complaints
+- Clear corporate responsibility for customer service failure
+- Documented pattern of ignoring legitimate customer complaints
 - Consumer left without recourse through normal channels
-- Potential impact on other customers
+- Potential impact on other customers facing similar issues
+- Timeline spanning over 3 weeks without resolution
 
-Timeline of Events:
-- Complaint filed: ${new Date(complaint.created_at).toDateString()}
-- Level 1 escalation
-- Level 2 escalation
-- Level 3 escalation (executive)
+Escalation Timeline:
+- Initial complaint filed: ${new Date(complaint.created_at).toDateString()}
+- Level 1 escalation: 7 days after initial filing
+- Level 2 escalation: 12 days after initial filing
+- Level 3 executive escalation: 15+ days after initial filing
+- Current: Media escalation due to complete corporate failure
 
-Why This Matters:
-This case illustrates broader issues in consumer protection and the lack of corporate accountability.
+Why This Story Matters:
+This case illustrates broader issues in consumer protection and the systematic lack of corporate accountability in customer service. It demonstrates how companies can completely ignore legitimate customer complaints without consequence.
+
+Requested Resolution (Still Ignored):
+${complaint.level1_requested_action || 'Fair resolution and appropriate compensation for the extended delay and poor service.'}
 
 Documentation Available:
-- Full correspondence and complaint logs
-- Evidence of impact on consumer
+- Complete correspondence and complaint logs
+- Evidence of customer impact and damages
 - Failed response history from ${company.name}
+- Timeline showing systematic neglect of customer rights
+- Supporting evidence and documentation
 
-I am available for interview and can provide all supporting documentation. This story deserves attention.
+I am available for interview and can provide all supporting documentation. This story deserves public attention to protect other consumers.
 
 Best regards,  
 ${user.name}  

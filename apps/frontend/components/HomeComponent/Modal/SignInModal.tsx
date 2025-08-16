@@ -103,7 +103,12 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose }) => {
       <div className="mb-4 flex flex-col items-center">
         <Button
           //  variant="outline"
-          onClick={() => signIn("google")}
+          onClick={() => {
+            // Close modal immediately when starting Google login
+            onClose();
+            // Let NextAuth handle the redirect with the configured callback
+            signIn("google", { callbackUrl: "/" });
+          }}
           className="w-full bg-blue border text-black hover:bg-blue-50"
         >
           Continue with Google

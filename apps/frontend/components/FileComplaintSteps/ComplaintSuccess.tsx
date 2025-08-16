@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { FormData } from "@/app/FileComplaint/page"; // Adjust import path as needed
+import { FormData } from "@/app/dashboard/FileComplaint/page"; // Using dashboard version for compatibility
 import {
   ArrowLeft,
   CheckCircle,

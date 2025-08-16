@@ -11,11 +11,16 @@ import companies from './routes/companies';
 import complaints from './routes/complaints';
 import auth from './routes/auth';
 import adminRoutes from './routes/admins';
-import companiesRouter from './routes/companies';
 import claudeRoutes from './routes/claude';
-import complaintsRouter from './routes/complaints';
+import documents from './routes/documents';
+import companySearch from './routes/company-search';
 
+// Load env from default .env first
 dotenv.config();
+// Additionally try to load from common monorepo locations (.env.local)
+// These calls are safe if the files don't exist
+dotenv.config({ path: path.join(__dirname, '../../.env.local') });
+dotenv.config({ path: path.join(__dirname, '../../../.env.local') });
 
 const app = express();
 
@@ -27,11 +32,11 @@ app.use(cookieParser());
 app.use('/api/auth', auth);
 app.use('/api/users', users);
 app.use('/api/companies', companies);
+app.use('/api/company-search', companySearch);
 app.use('/api/complaints', complaints);
 app.use('/api/admin', adminRoutes);
-app.use('/api/companies', companiesRouter);
 app.use('/api/claude', claudeRoutes);
-app.use('/api/complaints', complaintsRouter);
+app.use('/api/documents', documents);
 
 
 app.use((err: any, req: any, res: any, next: any) => {

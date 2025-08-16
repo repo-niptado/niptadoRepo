@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { getSession } from "next-auth/react";
+import { getSession, useSession } from "next-auth/react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import CompanySelection from "@/components/FileComplaintSteps/CompanySelection";
@@ -45,6 +45,20 @@ export interface FormData {
   prior_attempts: string;
   requested_action: string;
   selectedMediaContactIds: string[];
+  uploadedFiles: UploadedFile[];
+  // New fields for proper complaint handling
+  incident_date: string;
+  incident_time: string;
+  order_id: string;
+  incident_datetime: string;
+}
+
+export interface UploadedFile {
+  file_name: string;
+  file_path: string;
+  file_type: string;
+  temp_id?: string;
+  size?: number;
 }
 
 const FileComplaint = () => {
@@ -65,6 +79,7 @@ const FileComplaint = () => {
   const [token, setToken] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showStep2Loading, setShowStep2Loading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     companyId: "",
@@ -76,21 +91,30 @@ const FileComplaint = () => {
     prior_attempts: "",
     requested_action: "",
     selectedMediaContactIds: [],
+    uploadedFiles: [],
+    incident_date: "",
+    incident_time: "",
+    order_id: "",
+    incident_datetime: "",
   });
 
   useEffect(() => {
     setIsLoaded(true);
   }, []);
 
-  // 🔐 Fetch token on mount
+  // 🔐 Keep token in sync with NextAuth session
+  const { data: session, status } = useSession();
   useEffect(() => {
-    const fetchToken = async () => {
-      const session = await getSession();
-      const jwt = (session?.user as any)?.backendToken;
-      if (jwt) setToken(jwt);
-    };
-    fetchToken();
-  }, []);
+    if (status === "authenticated") {
+      // const jwt = (session?.user as any)?.backendToken;
+      const jwt = session?.user?.backendToken;
+      if (jwt) {
+        setToken(jwt);
+      } else {
+        console.warn("No backend token found in session (authenticated state)");
+      }
+    }
+  }, [session, status]);
 
   useEffect(() => {
     if (!loading && user === null) {
@@ -165,6 +189,11 @@ const FileComplaint = () => {
       impact: "",
       prior_attempts: "",
       requested_action: "",
+      uploadedFiles: [],
+      incident_date: "",
+      incident_time: "",
+      order_id: "",
+      incident_datetime: "",
     });
 
     if (step > 1) {
@@ -180,12 +209,17 @@ const FileComplaint = () => {
         {
           companyId: formData.companyId,
           title: formData.title,
+          description: formData.description,
           userName: user?.name || "Customer",
-          level1_issue_summary: formData.title,
-          level1_impact: formData.description,
+          incident_date: formData.incident_date,
+          incident_time: formData.incident_time,
+          order_id: formData.order_id,
+          level1_issue_summary: formData.issue_summary,
+          level1_impact: formData.impact,
           level1_prior_attempts: formData.prior_attempts,
           level1_requested_action: formData.requested_action,
           level1_generated_email: formData.formattedEmail,
+          uploadedFiles: formData.uploadedFiles,
         }
       );
       setFormData((prev) => ({
@@ -200,47 +234,117 @@ const FileComplaint = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isSubmitting) return; // prevent double submits
+    setIsSubmitting(true);
+    
+    // Try to get token one more time if it's missing
+    let currentToken = token;
+    if (!currentToken) {
+      console.log("Token missing, attempting to fetch fresh token...");
+      try {
+        const session = await getSession();
+        currentToken = (session?.user as any)?.backendToken;
+        if (!currentToken) {
+          // fallback to API endpoint that issues a token from server session
+          const tRes = await fetch('/api/auth/backend-token');
+          if (tRes.ok) {
+            const data = await tRes.json();
+            currentToken = data.backendToken;
+          }
+        }
+        if (currentToken) {
+          setToken(currentToken);
+          console.log("Fresh token obtained successfully");
+        }
+      } catch (error) {
+        console.error("Failed to fetch fresh token:", error);
+      }
+    }
+    
+    console.log("Starting submission with data:", {
+      formData,
+      selectedCompanyId,
+      selectedContactIds,
+      selectedMediaContactIds,
+      token: currentToken ? "present" : "missing"
+    });
+    
     try {
       const selectedCompany = companies.find(
         (c) => c.company_id.toString() === selectedCompanyId
       );
-      if (!selectedCompany) return alert("Selected company not found.");
+      if (!selectedCompany) {
+        console.error("No company selected");
+        return alert("Selected company not found.");
+      }
 
-      await axios.post(
+      // If we still don't have a Bearer token, proceed using backend cookie auth
+
+      // Validate required fields
+      if (!formData.issue_summary || !formData.incident_date) {
+        console.error("Missing required fields:", {
+          issue_summary: formData.issue_summary,
+          incident_date: formData.incident_date
+        });
+        return alert("Please fill in all required fields (Issue Summary and Incident Date).");
+      }
+
+      const submissionData = {
+        title: formData.title || formData.issue_summary,
+        description: formData.description || formData.impact || formData.issue_summary,
+        companyName: selectedCompany.name,
+        category: formData.issue_summary || "General",
+        subcategory: "General",
+        status: "Pending",
+        disputed_value: 0,
+        desired_resolution: "Not specified",
+        contactIds: selectedContactIds.map((id) => parseInt(id)),
+        mediaContactIds: selectedMediaContactIds.map((id) => parseInt(id)),
+        // New fields
+        incident_date: formData.incident_date,
+        incident_time: formData.incident_time,
+        order_id: formData.order_id,
+        incident_datetime: formData.incident_datetime,
+        level1_issue_summary: formData.issue_summary,
+        level1_impact: formData.impact,
+        level1_prior_attempts: formData.prior_attempts,
+        level1_requested_action: formData.requested_action,
+        level1_generated_email: formData.formattedEmail,
+        tempDocuments: formData.uploadedFiles,
+      };
+
+      console.log("Submitting data:", submissionData);
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (currentToken) {
+        headers.Authorization = `Bearer ${currentToken}`;
+      }
+
+      const response = await axios.post(
         "http://localhost:3001/api/complaints",
+        submissionData,
         {
-          title: formData.title,
-          description: formData.description,
-          companyName: selectedCompany.name,
-          category: formData.title,
-          subcategory: "General",
-          status: "Pending",
-          disputed_value: 0,
-          desired_resolution: "Not specified",
-          contactIds: selectedContactIds.map((id) => parseInt(id)),
-          mediaContactIds: selectedMediaContactIds.map((id) => parseInt(id)),
-          level1_issue_summary: formData.title,
-          level1_impact: formData.description,
-          level1_prior_attempts: formData.prior_attempts,
-          level1_requested_action: formData.requested_action,
-          level1_generated_email: formData.formattedEmail,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
           withCredentials: true,
         }
       );
 
-      // alert("Complaint submitted successfully");
-      // router.push("/");
+      console.log("Submission successful:", response.data);
       setSubmissionSuccess(true);
-    } catch (err) {
-      console.error("Error submitting complaint:", err);
-      alert("Failed to submit complaint");
+    } catch (err: any) {
+      console.error("Error submitting complaint:", {
+        error: err,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText
+      });
+      
+      const errorMessage = err.response?.data?.message || err.message || "Unknown error occurred";
+      alert(`Failed to submit complaint: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -263,9 +367,13 @@ const FileComplaint = () => {
       case 1:
         return selectedCompanyId !== "";
       case 2:
-        return formData.title.trim() !== "";
+        // Check if at least incident date and issue summary are filled
+        return (
+          formData.incident_date.trim() !== "" && 
+          formData.issue_summary.trim() !== ""
+        );
       case 3:
-        return formData.description.trim() !== "";
+        return formData.formattedEmail.trim() !== "";
       default:
         return true;
     }
@@ -278,8 +386,6 @@ const FileComplaint = () => {
         setShowStep2Loading(false);
         setStep((prev) => prev + 1);
       }, 10000);
-    } else if (step === 6) {
-      setStep(7); // move to submit step
     } else {
       setStep((prev) => prev + 1);
     }
@@ -423,21 +529,15 @@ const FileComplaint = () => {
             ) : step === 6 ? (
               <button
                 type="button"
-                onClick={handleNextStep}
+                onClick={() => handleSubmit()}
                 className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center justify-center"
+                disabled={showStep2Loading || isSubmitting}
+                title={isSubmitting ? "Submitting..." : undefined}
               >
-                Submit
+                {isSubmitting ? "Submitting..." : "Submit Complaint"}
                 <ArrowRight className="w-5 h-5 ml-2" />
               </button>
-            ) : (
-              <button
-                type="submit"
-                className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-8 py-4 rounded-2xl font-semibold hover:bg-white/20 transition-all duration-300 flex items-center"
-              >
-                Confirm Submit
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </button>
-            )}
+            ) : null}
           </div>
         </form>
       </main>

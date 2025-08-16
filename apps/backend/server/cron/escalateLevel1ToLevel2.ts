@@ -13,33 +13,46 @@ async function escalateLevel1ToLevel2() {
       escalation_status: "Waiting",
       created_at: { lte: sevenDaysAgo },
     },
-    include: { user: true, company: true },
+    include: { user: true, company: true, documents: true },
   });
 
   for (const complaint of complaints) {
     const { user, company } = complaint;
+
+    // Format incident date for display if available
+    const incidentInfo = complaint.incident_date ? 
+      `${new Date(complaint.incident_date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}${complaint.incident_time ? ` at ${complaint.incident_time}` : ''}` : 'Not specified';
 
     const prompt = `
 Subject: ESCALATED COMPLAINT - Ref: ${complaint.complaint_id} - Urgent Management Attention Required
 
 Dear ${company.name} Management,
 
-This letter serves as formal escalation of my unresolved complaint originally submitted on ${complaint.created_at.toDateString()} regarding "${complaint.level1_subject}". Despite 7 business days passing, I have received no satisfactory response from your customer service team.
+This letter serves as formal escalation of my unresolved complaint originally submitted on ${complaint.created_at.toDateString()} regarding "${complaint.level1_issue_summary || complaint.title}". Despite 7 business days passing, I have received no satisfactory response from your customer service team.
 
 Original Complaint Details:
 - Initial submission date: ${complaint.created_at.toDateString()}
+- Incident date and time: ${incidentInfo}
+${complaint.order_id ? `- Order/Transaction ID: ${complaint.order_id}` : ''}
 - Reference number: ${complaint.complaint_id}
-- Nature of complaint: ${complaint.level1_issue_summary}
-- Requested resolution: ${complaint.level1_requested_action}
+- Nature of complaint: ${complaint.level1_issue_summary || complaint.description}
+- Impact: ${complaint.level1_impact || 'Significant inconvenience caused'}
+- Previous attempts: ${complaint.level1_prior_attempts || 'Initial complaint submission'}
+- Requested resolution: ${complaint.level1_requested_action || 'Prompt resolution required'}
+${complaint.documents?.length ? `- Supporting evidence: ${complaint.documents.length} document(s) provided` : ''}
 
 Reason for Escalation:
-Your team has failed to respond adequately, and I am forced to escalate due to lack of resolution.
+Your team has failed to respond adequately within the standard 7-day timeframe, and I am forced to escalate due to lack of resolution.
 
 Escalated Request:
-I now request enhanced compensation for the delay, poor service, and inconvenience caused.
+I now request enhanced compensation for the delay, poor service, and inconvenience caused by your company's failure to address this matter promptly.
 
 Consumer Rights Notice:
-As a consumer, I expect timely resolution. I am providing ${company.name} one final opportunity to resolve this before I escalate to the Ministry of Consumer Affairs and media.
+As a consumer, I expect timely resolution of legitimate complaints. I am providing ${company.name} one final opportunity to resolve this before I escalate to the Ministry of Consumer Affairs, consumer forums, and media outlets.
 
 Sincerely,  
 ${user.name}  

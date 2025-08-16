@@ -48,6 +48,20 @@ export interface FormData {
   prior_attempts: string;
   requested_action: string;
   selectedMediaContactIds: string[];
+  uploadedFiles: UploadedFile[];
+  // New fields for proper complaint handling
+  incident_date: string;
+  incident_time: string;
+  order_id: string;
+  incident_datetime: string;
+}
+
+export interface UploadedFile {
+  file_name: string;
+  file_path: string;
+  file_type: string;
+  temp_id?: string;
+  size?: number;
 }
 
 const FileComplaint = () => {
@@ -74,6 +88,11 @@ const FileComplaint = () => {
     prior_attempts: "",
     requested_action: "",
     selectedMediaContactIds: [],
+    uploadedFiles: [],
+    incident_date: "",
+    incident_time: "",
+    order_id: "",
+    incident_datetime: "",
   });
 
   // 🔐 Fetch token on mount
@@ -155,6 +174,11 @@ const FileComplaint = () => {
       impact: "",
       prior_attempts: "",
       requested_action: "",
+      uploadedFiles: [],
+      incident_date: "",
+      incident_time: "",
+      order_id: "",
+      incident_datetime: "",
     });
 
     if (step > 1) {
@@ -170,12 +194,17 @@ const FileComplaint = () => {
         {
           companyId: formData.companyId,
           title: formData.title,
+          description: formData.description,
           userName: user?.name || "Customer",
-          level1_issue_summary: formData.title,
-          level1_impact: formData.description,
+          incident_date: formData.incident_date,
+          incident_time: formData.incident_time,
+          order_id: formData.order_id,
+          level1_issue_summary: formData.issue_summary,
+          level1_impact: formData.impact,
           level1_prior_attempts: formData.prior_attempts,
           level1_requested_action: formData.requested_action,
           level1_generated_email: formData.formattedEmail,
+          uploadedFiles: formData.uploadedFiles,
         }
       );
       setFormData((prev) => ({
@@ -192,44 +221,89 @@ const FileComplaint = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log("Starting submission with data:", {
+      formData,
+      selectedCompanyId,
+      selectedContactIds,
+      selectedMediaContactIds,
+      token: token ? "present" : "missing"
+    });
+    
     try {
       const selectedCompany = companies.find(
         (c) => c.company_id.toString() === selectedCompanyId
       );
-      if (!selectedCompany) return alert("Selected company not found.");
+      if (!selectedCompany) {
+        console.error("No company selected");
+        return alert("Selected company not found.");
+      }
 
-      await axios.post(
-        "http://localhost:3001/api/complaints",
-        {
+      if (!token) {
+        console.error("No authentication token");
+        return alert("Authentication token missing. Please log in again.");
+      }
+
+      // Validate required fields
+      if (!formData.title || !formData.description) {
+        console.error("Missing required fields:", {
           title: formData.title,
-          description: formData.description,
-          companyName: selectedCompany.name,
-          category: formData.title,
-          subcategory: "General",
-          status: "Pending",
-          disputed_value: 0,
-          desired_resolution: "Not specified",
-          contactIds: selectedContactIds.map((id) => parseInt(id)),
-          mediaContactIds: selectedMediaContactIds.map((id) => parseInt(id)),
-          level1_issue_summary: formData.title,
-          level1_impact: formData.description,
-          level1_prior_attempts: formData.prior_attempts,
-          level1_requested_action: formData.requested_action,
-          level1_generated_email: formData.formattedEmail,
-        },
+          description: formData.description
+        });
+        return alert("Please fill in all required fields (Title and Description).");
+      }
+
+      const submissionData = {
+        title: formData.title,
+        description: formData.description,
+        companyName: selectedCompany.name,
+        category: formData.title,
+        subcategory: "General",
+        status: "Pending",
+        disputed_value: 0,
+        desired_resolution: "Not specified",
+        contactIds: selectedContactIds.map((id) => parseInt(id)),
+        mediaContactIds: selectedMediaContactIds.map((id) => parseInt(id)),
+        level1_issue_summary: formData.issue_summary || formData.title,
+        level1_impact: formData.impact || formData.description,
+        level1_prior_attempts: formData.prior_attempts,
+        level1_requested_action: formData.requested_action,
+        level1_generated_email: formData.formattedEmail,
+        // Include new complaint details fields
+        incident_date: formData.incident_date,
+        incident_time: formData.incident_time,
+        order_id: formData.order_id,
+        incident_datetime: formData.incident_datetime,
+        tempDocuments: formData.uploadedFiles,
+      };
+
+      console.log("Submitting data:", submissionData);
+
+      const response = await axios.post(
+        "http://localhost:3001/api/complaints",
+        submissionData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
           withCredentials: true,
         }
       );
 
-      alert("Complaint submitted successfully");
+      console.log("Submission successful:", response.data);
+      alert("Submission successful");
       router.push("/");
-    } catch (err) {
-      console.error("Error submitting complaint:", err);
-      alert("Failed to submit complaint");
+    } catch (err: any) {
+      console.error("Error submitting complaint:", {
+        error: err,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText
+      });
+      
+      const errorMessage = err.response?.data?.message || err.message || "Unknown error occurred";
+      alert(`Failed to submit complaint: ${errorMessage}`);
     }
   };
 

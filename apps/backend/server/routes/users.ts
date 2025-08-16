@@ -1,17 +1,16 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
 import { authenticate } from "../middleware/authenticate";
 import { AuthRequest } from "../types";
 import multer, { FileFilterCallback } from "multer";
 import { Request } from "express";
 import path from "path";
 import fs from "fs";
+import prisma from "../prisma/client";
 
 const router = express.Router();
-const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || "defaultsecret";
+const AUTH_SECRET = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || "defaultsecret";
 
 // Register
 router.post("/register", async (req, res) => {
@@ -75,11 +74,18 @@ router.post("/login", async (req, res) => {
     if (!isMatch)
       return res.status(401).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user.id }, JWT_SECRET, {
+    const token = jwt.sign({ id: user.id }, AUTH_SECRET, {
       expiresIn: "1h",
     });
     res.cookie("token", token, { httpOnly: true });
-    res.json({ message: "Login successful", name: user.name });
+    res.json({ 
+      message: "Login successful", 
+      name: user.name,
+      user_id: user.id,
+      email: user.email,
+      role: user.role,
+      profileImage: user.image || "/uploads/default.png"
+    });
   } catch (err) {
     res.status(500).json({ message: "Login failed", error: err });
   }

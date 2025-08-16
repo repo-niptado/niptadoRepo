@@ -11,25 +11,38 @@ async function escalateLevel2ToLevel3() {
       escalation_status: "Waiting",
       last_escalation_triggered: { lte: fiveDaysAgo },
     },
-    include: { user: true, company: true },
+    include: { user: true, company: true, documents: true },
   });
 
   for (const complaint of complaints) {
     const { user, company } = complaint;
 
+    // Format incident date for display if available
+    const incidentInfo = complaint.incident_date ? 
+      `${new Date(complaint.incident_date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}${complaint.incident_time ? ` at ${complaint.incident_time}` : ''}` : 'Not specified';
+
     const prompt = `
-Subject: FINAL ESCALATION - Executive Intervention Required - ${complaint.level1_subject} - External Action Pending
+Subject: FINAL ESCALATION - Executive Intervention Required - ${complaint.level1_issue_summary || complaint.title} - External Action Pending
 
 Dear ${company.name} Executive Team,
 
 This communication serves as my final attempt to resolve a significant complaint through internal channels before pursuing external remedies under consumer protection laws.
 
+Original Incident Details:
+- Incident date and time: ${incidentInfo}
+${complaint.order_id ? `- Order/Transaction ID: ${complaint.order_id}` : ''}
+- Complaint reference: ${complaint.complaint_id}
+- Issue: ${complaint.level1_issue_summary || complaint.description}
+${complaint.documents?.length ? `- Supporting evidence: ${complaint.documents.length} document(s) provided` : ''}
+
 Escalation History:
 - Original complaint filed: ${complaint.created_at.toDateString()} - No adequate response
 - First escalation to middle management: ${complaint.last_escalation_triggered?.toDateString() || "N/A"} - No resolution
 - Total time seeking resolution: 12+ days
-
-The Issue: ${complaint.level1_issue_summary}
 
 Failed Internal Process:
 Your organization has failed to:
@@ -38,21 +51,27 @@ Your organization has failed to:
 - Demonstrate commitment to customer satisfaction
 - Follow basic customer service standards
 
+Customer Impact:
+${complaint.level1_impact || 'This ongoing issue has caused significant inconvenience and financial impact.'}
+
+Previous Resolution Attempts:
+${complaint.level1_prior_attempts || 'Multiple attempts made through normal customer service channels.'}
+
 Final Resolution Demand:
 I request immediate executive intervention to resolve this issue, including:
-${complaint.level1_requested_action}
+${complaint.level1_requested_action || 'Immediate resolution and appropriate compensation for the extended delay.'}
 
 Deadline for Response:
 Respond within 3 business days or I will escalate externally via:
-- Government regulators
-- Consumer protection groups
-- Legal remedies
-- Public media and social reviews
+- Government regulators and consumer protection agencies
+- Consumer protection groups and advocacy organizations
+- Legal remedies under consumer protection laws
+- Public media and social media reviews
 
 Documentation:
 I have retained complete records of this issue and your organization's inadequate handling.
 
-I trust your office will resolve this matter responsibly.
+I trust your executive office will resolve this matter responsibly and promptly.
 
 Sincerely,  
 ${user.name}  

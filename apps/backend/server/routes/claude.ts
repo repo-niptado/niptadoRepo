@@ -11,10 +11,14 @@ interface ClaudeRequestBody {
   title: string;
   description: string;
   userName: string;
+  incident_date: string;
+  incident_time: string;
+  order_id: string;
   level1_issue_summary: string;
   level1_impact: string;
   level1_prior_attempts: string;
   level1_requested_action: string;
+  uploadedFiles?: any[];
 }
 
 
@@ -24,11 +28,16 @@ router.post(
     const {
       companyId,
       title,
+      description,
       userName,
+      incident_date,
+      incident_time,
+      order_id,
       level1_issue_summary,
       level1_impact,
       level1_prior_attempts,
       level1_requested_action,
+      uploadedFiles,
     } = req.body;
 
     try {
@@ -45,25 +54,37 @@ router.post(
   day: "numeric",
 });
 
+      // Format incident date and time for display
+      const incidentDateTime = incident_date ? 
+        `${new Date(incident_date).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}${incident_time ? ` at ${incident_time}` : ''}` : 'Not specified';
+
       const prompt = `
 Compose a professional consumer complaint email in the following format and tone:
 
 ---
-Subject: Complaint Regarding ${title} - Customer ${userName} - Immediate Resolution Required
+Subject: Complaint Regarding ${level1_issue_summary || title} - Customer ${userName} - Immediate Resolution Required
 
 Dear Customer Service Team,
 
-I am writing to formally document a complaint regarding "${title}" that requires your immediate attention and resolution.
+I am writing to formally document a complaint regarding "${level1_issue_summary || title}" that requires your immediate attention and resolution.
 
-Issue Summary: ${level1_issue_summary}
+Incident Details:
+- Date and Time: ${incidentDateTime}
+${order_id ? `- Order/Transaction ID: ${order_id}` : ''}
 
-Impact on Consumer: ${level1_impact}
+Issue Summary: ${level1_issue_summary || description}
 
-Previous Attempts to Resolve: ${level1_prior_attempts}
+Impact on Consumer: ${level1_impact || 'This issue has caused significant inconvenience and requires immediate resolution.'}
 
-Requested Resolution: ${level1_requested_action}
+Previous Attempts to Resolve: ${level1_prior_attempts || 'This is my first formal complaint regarding this matter.'}
 
-Supporting Documentation: [User may attach supporting files separately.]
+Requested Resolution: ${level1_requested_action || 'I request a prompt and satisfactory resolution to this matter.'}
+
+Supporting Documentation: ${uploadedFiles && uploadedFiles.length > 0 ? `I have attached ${uploadedFiles.length} supporting document(s) as evidence.` : '[User may attach supporting files separately.]'}
 
 I trust ${companyName} values its customers and will address this matter promptly. I look forward to your response within 7 business days with a satisfactory resolution.
 
