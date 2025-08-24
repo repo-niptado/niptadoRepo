@@ -1,0 +1,21 @@
+// niptado/tsconfig.json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@lib/*": ["shared/lib/*"],
+      "@types/*": ["shared/types/*"],
+      "@prisma/*": ["packages/prisma/*"],
+      "@/*": ["shared/*"]
+    },
+    "moduleResolution": "node",
+    "target": "es2017",
+    "module": "commonjs",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["apps", "packages", "shared"]
+}
