@@ -1,0 +1,37 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "allowJs": true,
+    "paths": {
+       "@/*": ["./*"],
+      "@lib/*": ["../../shared/lib/*"],
+      "@types/*": ["../../shared/types/*"],
+      "@prisma/*": ["../../packages/prisma/*"],
+      "@shared/*": ["../../shared/*"]
+    },
+    "noEmit": true,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "types": ["node"],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+     "../../shared/types/next-auth.d.ts"
+
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
